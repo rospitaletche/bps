@@ -1,0 +1,16 @@
+/* ========================================================================== */
+/* Archivo: frontend/src/index.css (Tailwind v3)                             */
+/* ========================================================================== */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos base globales */
+body {
+  /* La fuente ahora se define en tailwind.config.js */
+  font-family: theme('fontFamily.sans');
+  color: #333;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
