@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/pages/PdfProcessorPage.jsx (CORREGIDO TEXTO PREDEF Y COLORES) */
+/* Archivo: frontend/src/pages/PdfProcessorPage.jsx (CORREGIDO CODIGO JUZGADO) */
 /* ========================================================================== */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -120,8 +120,14 @@ function PdfProcessorPage() {
              <SectionCard title="Resultados del Análisis" id="results-section">
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <h3 className="font-semibold text-secondary mb-2">Información del Juzgado</h3>
-                    <p className="text-sm text-gray-700"><span className="font-medium">Nombre:</span> {resultsData.nombre_juzgado || 'No identificado'}</p>
-                    <p className="text-sm text-gray-700"><span className="font-medium">Departamento:</span> {resultsData.departamento_juzgado || 'No identificado'}</p>
+                    {/* Mostrar Código Juzgado como ResultItem */}
+                    <ResultItem label="Código" value={resultsData.codigo_juzgado ?? 'N/A'} id="codigo-juzgado" />
+                    <p className="text-sm text-gray-700 -mt-4 mb-2"> {/* Ajuste de margen para texto */}
+                        <span className="font-medium">Nombre:</span> {resultsData.nombre_juzgado || 'No identificado'}
+                    </p>
+                    <p className="text-sm text-gray-700 mb-2">
+                        <span className="font-medium">Departamento:</span> {resultsData.departamento_juzgado || 'No identificado'}
+                    </p>
                     {resultsData.email_juzgado && (<div className="mt-2"><ResultItem label={null} value={resultsData.email_juzgado} id="email-juzgado" /></div>)}
                 </div>
                 <ResultItem label="Asunto Principal" value={resultsData.asunto_principal || 'No identificado'} id="asunto-principal" />
@@ -148,9 +154,8 @@ function PdfProcessorPage() {
                 {resultsData.cve && (<div className="mb-4"><div className="font-medium text-secondary mb-2">Código de Verificación (CVE)</div><a href={`https://validaciones.poderjudicial.gub.uy/?cve=${resultsData.cve}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-primary hover:text-secondary hover:underline text-sm">{resultsData.cve}<i className="fas fa-external-link-alt text-xs ml-2"></i></a></div>)}
                 {/* Secreto Tributario (COLORES INVERTIDOS) */}
                 <div className="mb-4 p-3 rounded-md" style={{
-                    // Verde si es TRUE, Rojo si es FALSE
-                    backgroundColor: resultsData.releva_secreto_tributario ? '#f0fdf4' : '#fef2f2', // bg-green-50 : bg-red-50
-                    borderColor: resultsData.releva_secreto_tributario ? '#bbf7d0' : '#fecaca', // border-green-200 : border-red-200
+                    backgroundColor: resultsData.releva_secreto_tributario ? '#f0fdf4' : '#fef2f2',
+                    borderColor: resultsData.releva_secreto_tributario ? '#bbf7d0' : '#fecaca',
                     borderWidth: '1px'
                  }}>
                     <div className="font-medium text-secondary mb-2">Releva Secreto Tributario</div>
