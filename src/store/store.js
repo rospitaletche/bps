@@ -1,13 +1,14 @@
-// frontend/src/store/store.js
+/* ========================================================================== */
+/* Archivo: frontend/src/store/store.js (ACTUALIZADO)                        */
+/* ========================================================================== */
 import { configureStore } from '@reduxjs/toolkit';
-// Importa tus reducers/slices aquí, por ejemplo:
-//import counterReducer from './features/counter/counterSlice.js'; // <-- Asegúrate de importar tus reducers
+// Importar el nuevo reducer del análisis
+import analysisReducer from './features/analysisSlice.js';
 
 export const store = configureStore({
   reducer: {
-    // Añade tus reducers aquí
-    //counter: counterReducer, // <-- Registra el reducer importado
+    // Añadir el reducer del análisis al store
+    analysis: analysisReducer,
+    // Otros reducers irían aquí si los tuvieras
   },
 });
-
-// No necesitas exportar tipos RootState/AppDispatch en JS de la misma forma que en TS

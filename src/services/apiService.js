@@ -1,18 +1,17 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/services/apiService.js (ACTUALIZADO)                */
+/* Archivo: frontend/src/services/apiService.js                              */
 /* ========================================================================== */
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 async function handleResponse(response) {
     let errorMsg = `Error: ${response.status} ${response.statusText}`;
     let responseData = null;
     try {
-        if (response.status === 204) { return {}; }
+        if (response.status === 204) { return {}; } // No content para DELETE exitoso
         responseData = await response.json();
     } catch (jsonError) {
-        if (!response.ok) { throw new Error(errorMsg); }
-        console.warn("Could not parse JSON response, but status was OK.");
+        if (!response.ok && response.status !== 204) { throw new Error(errorMsg); }
+        if (response.status !== 204) console.warn("Could not parse JSON response, but status was OK.");
         return {};
     }
     if (!response.ok) {
@@ -37,25 +36,10 @@ export async function analyzePdfApi(pdfFile) {
     }
 }
 
-/**
- * Llama al endpoint para crear un nuevo expediente.
- * @param {object} expedienteData - Datos del expediente a crear.
- * @param {string} expedienteData.expediente_nro
- * @param {boolean} expedienteData.trabajado
- * @param {number} expedienteData.id_usuario
- * @param {string | null} expedienteData.fecha_recibido - Formato YYYY-MM-DD
- * @param {string | null} expedienteData.juzgado
- * @param {string | null} expedienteData.departamento
- * @param {string | null} expedienteData.oficio
- * @returns {Promise<object>} - Un objeto { data: ..., error: ... }
- */
 export async function createExpedienteApi(expedienteData) {
     try {
         const response = await fetch(`${API_BASE_URL}/api/v1/expedientes/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // Enviar el payload completo
-            body: JSON.stringify(expedienteData),
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(expedienteData),
         });
         const data = await handleResponse(response);
         return { data, error: null };
@@ -71,7 +55,14 @@ export async function getExpedientesApi(skip = 0, limit = 100) {
         url.searchParams.append('skip', skip); url.searchParams.append('limit', limit);
         const response = await fetch(url.toString(), { method: 'GET' });
         const data = await handleResponse(response);
-        return { data: Array.isArray(data) ? data : [], error: null };
+        const validatedData = (Array.isArray(data) ? data : []).map(exp => ({
+            ...exp,
+            oficio: exp.oficio ?? null,
+            juzgado: exp.juzgado ?? null,
+            departamento: exp.departamento ?? null,
+            fecha_recibido: exp.fecha_recibido ?? null,
+        }));
+        return { data: validatedData, error: null };
     } catch (error) {
         console.error("Error en getExpedientesApi:", error);
         return { data: [], error: error.message || "Error desconocido al obtener expedientes." };
@@ -88,5 +79,18 @@ export async function updateTrabajadoStatusApi(expedienteId, trabajado) {
     } catch (error) {
         console.error("Error en updateTrabajadoStatusApi:", error);
         return { data: null, error: error.message || "Error desconocido al actualizar estado." };
+    }
+}
+
+export async function deleteExpedienteApi(expedienteId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/expedientes/${expedienteId}`, {
+            method: 'DELETE',
+        });
+        await handleResponse(response); // handleResponse maneja el 204
+        return { data: { message: "Expediente eliminado" }, error: null };
+    } catch (error) {
+        console.error("Error en deleteExpedienteApi:", error);
+        return { data: null, error: error.message || "Error desconocido al eliminar expediente." };
     }
 }

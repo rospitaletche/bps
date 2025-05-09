@@ -1,11 +1,12 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/pages/PdfProcessorPage.jsx (CORREGIDO CODIGO JUZGADO) */
+/* Archivo: frontend/src/pages/PdfProcessorPage.jsx (INTEGRACIÓN REDUX)      */
 /* ========================================================================== */
-
 import React, { useState, useCallback, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { analyzePdfApi, createExpedienteApi } from '../services/apiService.js';
+import { setAnalysisData, clearAnalysisData } from '../store/features/analysisSlice.js';
 import SectionCard from '../components/SectionCard.jsx';
 import PdfDropzone from '../components/PdfDropzone.jsx';
 import Button from '../components/Button.jsx';
@@ -14,17 +15,13 @@ import ExpedienteInput from '../components/ExpedienteInput.jsx';
 import CheckboxWithNumber from '../components/CheckboxWithNumber.jsx';
 import DatePickerInput from '../components/DatePickerInput.jsx';
 
-/**
- * Página principal del procesador de PDF.
- */
 function PdfProcessorPage() {
-  // --- Estados ---
+  const dispatch = useDispatch();
+  const analysisResultsFromStore = useSelector((state) => state.analysis.analysisData);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingComplete, setProcessingComplete] = useState(false);
   const [processingError, setProcessingError] = useState(null);
-  const [showResults, setShowResults] = useState(false);
-  const [resultsData, setResultsData] = useState(null);
   const [expedienteNumber, setExpedienteNumber] = useState('');
   const [selectedDate, setSelectedDate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,23 +29,24 @@ function PdfProcessorPage() {
   const [saveError, setSaveError] = useState(null);
   const [predefinedTextChecked, setPredefinedTextChecked] = useState(false);
   const [predefinedTextNumber, setPredefinedTextNumber] = useState(2);
-  const [currentPredefinedText, setCurrentPredefinedText] = useState(
-    'La documentación contenida en foja 1, concuerda con el original que se tuvo a la vista.'
-  );
+  const [currentPredefinedText, setCurrentPredefinedText] = useState('La documentación contenida en foja 1, concuerda con el original que se tuvo a la vista.');
 
-  // --- Handlers ---
+  const resultsData = analysisResultsFromStore;
+  const showResults = !!analysisResultsFromStore;
+
   const handleFilesAccepted = useCallback((files) => {
-    setUploadedFiles(files); setShowResults(false); setResultsData(null);
-    setProcessingComplete(false); setProcessingError(null);
-  }, []);
+    setUploadedFiles(files); dispatch(clearAnalysisData()); setProcessingComplete(false);
+    setProcessingError(null); setExpedienteNumber(''); setSelectedDate(null);
+    setPredefinedTextChecked(false); setPredefinedTextNumber(2);
+  }, [dispatch]);
 
   const handleProcessClick = useCallback(async () => {
     if (uploadedFiles.length === 0) { setProcessingError("Por favor, seleccione o arrastre un archivo PDF."); return; }
     const fileToUpload = uploadedFiles[0];
-    setIsProcessing(true); setProcessingComplete(false); setShowResults(false); setResultsData(null); setProcessingError(null);
+    setIsProcessing(true); setProcessingComplete(false); dispatch(clearAnalysisData()); setProcessingError(null);
     const { data, error } = await analyzePdfApi(fileToUpload);
     setIsProcessing(false);
-    if (error) { console.error("Error detallado al analizar el PDF:", error); setProcessingError(`Error al analizar: ${error}`); setShowResults(false); }
+    if (error) { console.error("Error detallado al analizar el PDF:", error); setProcessingError(`Error al analizar: ${error}`); }
     else {
       const validatedData = {
           codigo_juzgado: data?.codigo_juzgado ?? null, nombre_juzgado: data?.nombre_juzgado ?? null, email_juzgado: data?.email_juzgado ?? null,
@@ -56,10 +54,10 @@ function PdfProcessorPage() {
           asunto_principal: data?.asunto_principal ?? '', acciones_detalladas: Array.isArray(data?.acciones_detalladas) ? data.acciones_detalladas : [],
           cve: data?.cve ?? null, releva_secreto_tributario: data?.releva_secreto_tributario ?? false, justificacion_releva_secreto: data?.justificacion_releva_secreto ?? null,
       };
-      setResultsData(validatedData); setShowResults(true); setProcessingComplete(true);
+      dispatch(setAnalysisData(validatedData)); setProcessingComplete(true);
       setTimeout(() => setProcessingComplete(false), 2000);
     }
-  }, [uploadedFiles]);
+  }, [uploadedFiles, dispatch]);
 
   const handleSaveClick = useCallback(async () => {
     if (!resultsData) { setSaveError("Primero debes analizar un PDF para obtener los datos del juzgado y asunto."); return; }
@@ -81,38 +79,38 @@ function PdfProcessorPage() {
     else { console.log("Expediente guardado:", data); setSaveComplete(true); setTimeout(() => setSaveComplete(false), 1500); }
   }, [expedienteNumber, selectedDate, resultsData]);
 
-  // --- Lógica Texto Predefinido (ACTUALIZADA CON PUNTO) ---
   const generateBasePredefinedText = useCallback((checked, number) => {
-    if (checked) {
-      return `La documentación contenida en fojas 1 a ${number}, concuerda con los originales que se tuvieron a la vista.`;
-    } else {
-      return 'La documentación contenida en foja 1, concuerda con el original que se tuvo a la vista.';
-    }
+    if (checked) return `La documentación contenida en fojas 1 a ${number}, concuerda con los originales que se tuvieron a la vista.`;
+    return 'La documentación contenida en foja 1, concuerda con el original que se tuvo a la vista.';
   }, []);
 
   useEffect(() => {
     const baseText = generateBasePredefinedText(predefinedTextChecked, predefinedTextNumber);
     let finalText = baseText;
-
     if (selectedDate && isValid(selectedDate)) {
       const formattedDate = format(selectedDate, 'dd/MM/yyyy', { locale: es });
-      // Añadir punto antes del salto de línea
       finalText = `Se deja constancia que el Oficio fue recibido con fecha: ${formattedDate}.\n${baseText}`;
     }
-
     setCurrentPredefinedText(finalText);
   }, [predefinedTextChecked, predefinedTextNumber, selectedDate, generateBasePredefinedText]);
 
   const handleCheckboxChange = useCallback((e) => { setPredefinedTextChecked(e.target.checked); }, []);
   const handleNumberChange = useCallback((e) => { setPredefinedTextNumber(parseInt(e.target.value, 10) || 1); }, []);
+  const handleClearForm = useCallback(() => {
+    dispatch(clearAnalysisData()); setUploadedFiles([]); setExpedienteNumber('');
+    setSelectedDate(null); setPredefinedTextChecked(false); setPredefinedTextNumber(2);
+    setProcessingError(null); setSaveError(null); setProcessingComplete(false);
+  }, [dispatch]);
 
-  // --- Renderizado ---
   return (
     <main className="flex-grow container mx-auto px-4 py-6">
       <SectionCard title="Cargar PDF" id="upload-section">
         <PdfDropzone onFilesAccepted={handleFilesAccepted} />
         {processingError && (<div className="mt-4 text-center text-red-600 bg-red-100 p-3 rounded-md">{processingError}</div>)}
-        <div className="flex justify-center mt-4"><Button onClick={handleProcessClick} disabled={isProcessing || uploadedFiles.length === 0} variant="primary">{isProcessing ? (<><i className="fas fa-spinner fa-spin mr-2"></i>Analizando...</>) : processingComplete ? (<><i className="fas fa-check mr-2"></i>Analizado</>) : (<><i className="fas fa-cogs mr-2"></i>Analizar</>)}</Button></div>
+        <div className="flex justify-center items-center mt-4 space-x-3">
+          <Button onClick={handleProcessClick} disabled={isProcessing || uploadedFiles.length === 0} variant="primary">{isProcessing ? (<><i className="fas fa-spinner fa-spin mr-2"></i>Analizando...</>) : processingComplete ? (<><i className="fas fa-check mr-2"></i>Analizado</>) : (<><i className="fas fa-cogs mr-2"></i>Analizar</>)}</Button>
+          {(uploadedFiles.length > 0 || resultsData) && (<Button onClick={handleClearForm} variant="ghost" className="text-sm"><i className="fas fa-sync-alt mr-2"></i>Limpiar</Button>)}
+        </div>
       </SectionCard>
       <div className="grid grid-cols-1 md:grid-cols-2 md:gap-6">
         <div className={showResults && resultsData && !processingError ? 'block' : 'hidden md:block md:invisible'}>
@@ -120,14 +118,9 @@ function PdfProcessorPage() {
              <SectionCard title="Resultados del Análisis" id="results-section">
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                     <h3 className="font-semibold text-secondary mb-2">Información del Juzgado</h3>
-                    {/* Mostrar Código Juzgado como ResultItem */}
                     <ResultItem label="Código" value={resultsData.codigo_juzgado ?? 'N/A'} id="codigo-juzgado" />
-                    <p className="text-sm text-gray-700 -mt-4 mb-2"> {/* Ajuste de margen para texto */}
-                        <span className="font-medium">Nombre:</span> {resultsData.nombre_juzgado || 'No identificado'}
-                    </p>
-                    <p className="text-sm text-gray-700 mb-2">
-                        <span className="font-medium">Departamento:</span> {resultsData.departamento_juzgado || 'No identificado'}
-                    </p>
+                    <p className="text-sm text-gray-700 -mt-4 mb-2"><span className="font-medium">Nombre:</span> {resultsData.nombre_juzgado || 'No identificado'}</p>
+                    <p className="text-sm text-gray-700 mb-2"><span className="font-medium">Departamento:</span> {resultsData.departamento_juzgado || 'No identificado'}</p>
                     {resultsData.email_juzgado && (<div className="mt-2"><ResultItem label={null} value={resultsData.email_juzgado} id="email-juzgado" /></div>)}
                 </div>
                 <ResultItem label="Asunto Principal" value={resultsData.asunto_principal || 'No identificado'} id="asunto-principal" />
@@ -152,16 +145,9 @@ function PdfProcessorPage() {
                    ) : (<p className="text-sm text-gray-500 italic">No se identificaron acciones específicas.</p>)}
                 </div>
                 {resultsData.cve && (<div className="mb-4"><div className="font-medium text-secondary mb-2">Código de Verificación (CVE)</div><a href={`https://validaciones.poderjudicial.gub.uy/?cve=${resultsData.cve}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-primary hover:text-secondary hover:underline text-sm">{resultsData.cve}<i className="fas fa-external-link-alt text-xs ml-2"></i></a></div>)}
-                {/* Secreto Tributario (COLORES INVERTIDOS) */}
-                <div className="mb-4 p-3 rounded-md" style={{
-                    backgroundColor: resultsData.releva_secreto_tributario ? '#f0fdf4' : '#fef2f2',
-                    borderColor: resultsData.releva_secreto_tributario ? '#bbf7d0' : '#fecaca',
-                    borderWidth: '1px'
-                 }}>
+                <div className="mb-4 p-3 rounded-md" style={{ backgroundColor: resultsData.releva_secreto_tributario ? '#f0fdf4' : '#fef2f2', borderColor: resultsData.releva_secreto_tributario ? '#bbf7d0' : '#fecaca', borderWidth: '1px' }}>
                     <div className="font-medium text-secondary mb-2">Releva Secreto Tributario</div>
-                    <p className={`text-sm font-semibold ${resultsData.releva_secreto_tributario ? 'text-green-700' : 'text-red-700'}`}>
-                        {resultsData.releva_secreto_tributario ? 'Sí' : 'No'}
-                    </p>
+                    <p className={`text-sm font-semibold ${resultsData.releva_secreto_tributario ? 'text-green-700' : 'text-red-700'}`}>{resultsData.releva_secreto_tributario ? 'Sí' : 'No'}</p>
                     {resultsData.releva_secreto_tributario && resultsData.justificacion_releva_secreto && (<div className="mt-2"><p className="text-xs font-medium text-gray-600 mb-1">Justificación:</p><p className="text-xs text-gray-700 italic">"{resultsData.justificacion_releva_secreto}"</p></div>)}
                 </div>
              </SectionCard>
@@ -175,7 +161,6 @@ function PdfProcessorPage() {
             <div className="pt-4 border-t border-gray-200">
                 <div className="font-medium text-gray-700 mb-3">Texto para el APIA</div>
                 <CheckboxWithNumber id="text-option" checked={predefinedTextChecked} onCheckboxChange={handleCheckboxChange} numberValue={predefinedTextNumber} onNumberChange={handleNumberChange} labelPrefix="Paginas" />
-                {/* Usar white-space-pre-wrap para respetar el salto de línea \n */}
                 <ResultItem value={currentPredefinedText} id="predefined-text" />
             </div>
           </SectionCard>
