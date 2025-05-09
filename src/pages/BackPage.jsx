@@ -101,7 +101,7 @@ function BackPage() {
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-center"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${exp.trabajado ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{exp.trabajado ? 'Trabajado' : 'No Trabajado'}</span></td>
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-center space-x-2">
                           <button onClick={() => handleToggleTrabajado(exp)} disabled={updatingStatus[exp.id]} className={`focus:outline-none p-1 rounded-full hover:bg-gray-200 ${updatingStatus[exp.id] ? 'cursor-wait' : ''}`} title={exp.trabajado ? "Marcar como No Trabajado" : "Marcar como Trabajado"}>{renderStatusIcon(exp)}</button>
-                          <button onClick={() => openDeleteModal(exp)} disabled={updatingStatus[exp.id]} className="text-red-500 hover:text-red-700 focus:outline-none p-1 rounded-full hover:bg-gray-200" title="Eliminar Expediente"><i className="fas fa-trash-alt"></i></button>
+                          <button onClick={() => openDeleteModal(exp)} disabled={updatingStatus[exp.id]} className="text-gray-500 hover:text-gray-700 focus:outline-none p-1 rounded-full hover:bg-gray-200" title="Eliminar Expediente"><i className="fas fa-trash-alt"></i></button>
                         </td>
                       </tr>
                     ))
