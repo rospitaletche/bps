@@ -1,26 +1,27 @@
 /* ========================================================================== */
 /* Archivo: frontend/src/pages/CalculadoraPage.jsx                           */
 /* ========================================================================== */
+/* (Sin cambios) */
 import React, { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import SectionCard from '../components/SectionCard.jsx';
 import Button from '../components/Button.jsx';
 import { evaluarEscenarios } from '../logic/calculosPrestaciones.js';
-import { createAccessLogApi } from '../services/apiService.js'; // Importar servicio de logs
+import { createAccessLogApi } from '../services/apiService.js';
 
 function CalculadoraPage() {
   const [ingresosPadres, setIngresosPadres] = useState('');
   const [leyActual, setLeyActual] = useState('AFAM');
-  const [menores, setMenores] = useState([{ id: uuidv4(), edad: '', esMultiple: false, nivelEducativo: 'Otro' }]);
+  const [menores, setMenores] = useState([{ id: uuidv4(), edad: '', esMultiple: false, nivelEducativo: 'Primaria' }]); // Default a Primaria
   const [calculoResultados, setCalculoResultados] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorCalculo, setErrorCalculo] = useState(null);
 
   const handleMenorChange = (id, field, value) => { setMenores(prevMenores => prevMenores.map(menor => menor.id === id ? { ...menor, [field]: value } : menor)); };
-  const addMenor = () => { setMenores(prevMenores => [...prevMenores, { id: uuidv4(), edad: '', esMultiple: false, nivelEducativo: 'Otro' }]); };
+  const addMenor = () => { setMenores(prevMenores => [...prevMenores, { id: uuidv4(), edad: '', esMultiple: false, nivelEducativo: 'Primaria' }]); }; // Default a Primaria
   const removeMenor = (id) => { setMenores(prevMenores => prevMenores.filter(menor => menor.id !== id)); };
 
-  const handleSubmitCalculo = useCallback(async (e) => { // Hacer async
+  const handleSubmitCalculo = useCallback(async (e) => {
     e.preventDefault(); setIsLoading(true); setErrorCalculo(null); setCalculoResultados(null);
     const ingresosNum = parseFloat(ingresosPadres);
     if (isNaN(ingresosNum) || ingresosNum < 0) { setErrorCalculo("Por favor, ingrese un monto válido para los ingresos."); setIsLoading(false); return; }
@@ -29,18 +30,7 @@ function CalculadoraPage() {
     if (menoresValidos.length === 0 && menores.length > 0) { setErrorCalculo("Por favor, ingrese edades válidas para los menores."); setIsLoading(false); return; }
     if (menores.length === 0) { setErrorCalculo("Por favor, agregue al menos un menor."); setIsLoading(false); return; }
     const datosEntrada = { ingresosPadres: ingresosNum, leyActual: leyActual, menores: menoresValidos.map(m => ({ edad: m.edad, esMultiple: m.esMultiple, nivelEducativo: m.nivelEducativo })), };
-
-    // Enviar log antes del cálculo
-    await createAccessLogApi({
-        action_description: "Cálculo de Prestaciones Gemelares",
-        details: {
-            ingresosPadres: datosEntrada.ingresosPadres,
-            leyActual: datosEntrada.leyActual,
-            cantidadMenores: datosEntrada.menores.length,
-            menoresDetalle: datosEntrada.menores.map(m => ({ edad: m.edad, esMultiple: m.esMultiple, nivel: m.nivelEducativo }))
-        }
-    });
-
+    await createAccessLogApi({ action_description: "Cálculo de Prestaciones Gemelares", details: { ingresosPadres: datosEntrada.ingresosPadres, leyActual: datosEntrada.leyActual, cantidadMenores: datosEntrada.menores.length, menoresDetalle: datosEntrada.menores.map(m => ({ edad: m.edad, esMultiple: m.esMultiple, nivel: m.nivelEducativo })) } });
     setTimeout(() => {
       try { const resultados = evaluarEscenarios(datosEntrada); setCalculoResultados(resultados); }
       catch (error) { console.error("Error al calcular escenarios:", error); setErrorCalculo("Ocurrió un error al realizar el cálculo. Verifique los datos ingresados."); }
@@ -48,7 +38,7 @@ function CalculadoraPage() {
     }, 500);
   }, [ingresosPadres, leyActual, menores]);
 
-  const resetForm = () => { setIngresosPadres(''); setLeyActual('AFAM'); setMenores([{ id: uuidv4(), edad: '', esMultiple: false, nivelEducativo: 'Otro' }]); setCalculoResultados(null); setErrorCalculo(null); setIsLoading(false); };
+  const resetForm = () => { setIngresosPadres(''); setLeyActual('AFAM'); setMenores([{ id: uuidv4(), edad: '', esMultiple: false, nivelEducativo: 'Primaria' }]); setCalculoResultados(null); setErrorCalculo(null); setIsLoading(false); }; // Default a Primaria
 
   return (
     <main className="flex-grow container mx-auto px-4 py-6">
@@ -65,7 +55,13 @@ function CalculadoraPage() {
                     <p className="font-semibold text-sm text-gray-600 mb-2">Menor {index + 1}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div><label htmlFor={`edad-${menor.id}`} className="block text-xs font-medium text-gray-600 mb-1">Edad</label><input type="number" id={`edad-${menor.id}`} value={menor.edad} onChange={(e) => handleMenorChange(menor.id, 'edad', e.target.value)} placeholder="Ej: 7" min="0" max="18" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required /></div>
-                      <div><label htmlFor={`nivelEducativo-${menor.id}`} className="block text-xs font-medium text-gray-600 mb-1">Nivel Educativo</label><select id={`nivelEducativo-${menor.id}`} value={menor.nivelEducativo} onChange={(e) => handleMenorChange(menor.id, 'nivelEducativo', e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"><option value="Otro">Otro</option><option value="Primaria">Primaria</option><option value="Media">Educación Media</option></select></div>
+                      <div>
+                        <label htmlFor={`nivelEducativo-${menor.id}`} className="block text-xs font-medium text-gray-600 mb-1">Nivel Educativo</label>
+                        <select id={`nivelEducativo-${menor.id}`} value={menor.nivelEducativo} onChange={(e) => handleMenorChange(menor.id, 'nivelEducativo', e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                          <option value="Primaria">Primaria</option>
+                          <option value="Media">Educación Media</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="mt-3"><label htmlFor={`esMultiple-${menor.id}`} className="flex items-center text-sm text-gray-700"><input type="checkbox" id={`esMultiple-${menor.id}`} checked={menor.esMultiple} onChange={(e) => handleMenorChange(menor.id, 'esMultiple', e.target.checked)} className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary mr-2" />¿Es parte de un nacimiento múltiple (gemelo, trillizo, etc.)?</label></div>
                     {menores.length > 1 && (<button type="button" onClick={() => removeMenor(menor.id)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1" title="Eliminar menor"><i className="fas fa-times-circle"></i></button>)}
