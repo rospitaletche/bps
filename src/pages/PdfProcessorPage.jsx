@@ -1,11 +1,11 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/pages/PdfProcessorPage.jsx (INTEGRACIÓN REDUX)      */
+/* Archivo: frontend/src/pages/PdfProcessorPage.jsx (INTEGRACIÓN LOGS)       */
 /* ========================================================================== */
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { analyzePdfApi, createExpedienteApi } from '../services/apiService.js';
+import { analyzePdfApi, createExpedienteApi, createAccessLogApi } from '../services/apiService.js'; // Importar createAccessLogApi
 import { setAnalysisData, clearAnalysisData } from '../store/features/analysisSlice.js';
 import SectionCard from '../components/SectionCard.jsx';
 import PdfDropzone from '../components/PdfDropzone.jsx';
@@ -30,7 +30,6 @@ function PdfProcessorPage() {
   const [predefinedTextChecked, setPredefinedTextChecked] = useState(false);
   const [predefinedTextNumber, setPredefinedTextNumber] = useState(2);
   const [currentPredefinedText, setCurrentPredefinedText] = useState('La documentación contenida en foja 1, concuerda con el original que se tuvo a la vista.');
-
   const resultsData = analysisResultsFromStore;
   const showResults = !!analysisResultsFromStore;
 
@@ -44,10 +43,23 @@ function PdfProcessorPage() {
     if (uploadedFiles.length === 0) { setProcessingError("Por favor, seleccione o arrastre un archivo PDF."); return; }
     const fileToUpload = uploadedFiles[0];
     setIsProcessing(true); setProcessingComplete(false); dispatch(clearAnalysisData()); setProcessingError(null);
+
+    // Enviar log de inicio de análisis
+    createAccessLogApi({
+        action_description: "Inicio de Análisis de PDF (Oficios)",
+        details: {
+            nombre_archivo: fileToUpload.name,
+            tamano_archivo: fileToUpload.size,
+        }
+    });
+
     const { data, error } = await analyzePdfApi(fileToUpload);
     setIsProcessing(false);
-    if (error) { console.error("Error detallado al analizar el PDF:", error); setProcessingError(`Error al analizar: ${error}`); }
-    else {
+    if (error) {
+        console.error("Error detallado al analizar el PDF:", error);
+        setProcessingError(`Error al analizar: ${error}`);
+        createAccessLogApi({ action_description: "Error en Análisis de PDF (Oficios)", details: { error: error, archivo: fileToUpload.name } });
+    } else {
       const validatedData = {
           codigo_juzgado: data?.codigo_juzgado ?? null, nombre_juzgado: data?.nombre_juzgado ?? null, email_juzgado: data?.email_juzgado ?? null,
           departamento_juzgado: data?.departamento_juzgado ?? null, documentos_involucrados: Array.isArray(data?.documentos_involucrados) ? data.documentos_involucrados : [],
@@ -55,6 +67,7 @@ function PdfProcessorPage() {
           cve: data?.cve ?? null, releva_secreto_tributario: data?.releva_secreto_tributario ?? false, justificacion_releva_secreto: data?.justificacion_releva_secreto ?? null,
       };
       dispatch(setAnalysisData(validatedData)); setProcessingComplete(true);
+      createAccessLogApi({ action_description: "Análisis de PDF Exitoso (Oficios)", details: { archivo: fileToUpload.name, resultado: validatedData } });
       setTimeout(() => setProcessingComplete(false), 2000);
     }
   }, [uploadedFiles, dispatch]);

@@ -1,13 +1,14 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/services/apiService.js                              */
+/* Archivo: frontend/src/services/apiService.js (ACTUALIZADO LOGS)           */
 /* ========================================================================== */
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 async function handleResponse(response) {
     let errorMsg = `Error: ${response.status} ${response.statusText}`;
     let responseData = null;
     try {
-        if (response.status === 204) { return {}; } // No content para DELETE exitoso
+        if (response.status === 204) { return {}; }
         responseData = await response.json();
     } catch (jsonError) {
         if (!response.ok && response.status !== 204) { throw new Error(errorMsg); }
@@ -87,10 +88,57 @@ export async function deleteExpedienteApi(expedienteId) {
         const response = await fetch(`${API_BASE_URL}/api/v1/expedientes/${expedienteId}`, {
             method: 'DELETE',
         });
-        await handleResponse(response); // handleResponse maneja el 204
+        await handleResponse(response);
         return { data: { message: "Expediente eliminado" }, error: null };
     } catch (error) {
         console.error("Error en deleteExpedienteApi:", error);
         return { data: null, error: error.message || "Error desconocido al eliminar expediente." };
+    }
+}
+
+/**
+ * Envía un log de acceso al backend.
+ * El backend se encarga de la IP. El frontend envía la descripción y detalles.
+ * @param {object} logInput - Datos del log a enviar.
+ * @param {string} logInput.action_description - Descripción de la acción.
+ * @param {string|null} [logInput.user_identifier="usuario_anonimo"] - Identificador del usuario.
+ * @param {object} [logInput.details={}] - Detalles adicionales.
+ * @returns {Promise<object>} - Un objeto { data: ..., error: ... }
+ */
+export async function createAccessLogApi(logInput) {
+    // El timestamp se genera en el backend según tu descripción
+    // La IP se obtiene en el backend
+    const payload = {
+        action_description: logInput.action_description,
+        user_identifier: logInput.user_identifier || "usuario_anonimo", // Default si no se provee
+        details: logInput.details || {}, // Default a objeto vacío
+    };
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/logs/access`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await handleResponse(response);
+        console.log("Log de acceso enviado:", data);
+        return { data, error: null };
+    } catch (error) {
+        console.error("Error en createAccessLogApi:", error);
+        // No interrumpir al usuario si el log falla
+        return { data: null, error: error.message || "Error al enviar log de acceso." };
+    }
+}
+
+export async function getAccessLogsApi(skip = 0, limit = 100) {
+    try {
+        const url = new URL(`${API_BASE_URL}/api/v1/logs/access`);
+        url.searchParams.append('skip', skip);
+        url.searchParams.append('limit', limit);
+        const response = await fetch(url.toString(), { method: 'GET' });
+        const data = await handleResponse(response);
+        return { data: Array.isArray(data) ? data : [], error: null };
+    } catch (error) {
+        console.error("Error en getAccessLogsApi:", error);
+        return { data: [], error: error.message || "Error desconocido al obtener logs de acceso." };
     }
 }
