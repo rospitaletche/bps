@@ -125,7 +125,7 @@ function CalculadoraPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 md:gap-x-8 lg:gap-x-12">
         {/* Columna Izquierda: Formulario */}
         <div className="md:col-span-1">
-          <SectionCard title="Calculadora de Prestaciones Sociales">
+          <SectionCard title="Comparador de Asignaciones">
             <form onSubmit={handleSubmitCalculo}>
               {/* Ley Actual (Movido arriba) */}
               <div className="mb-4"> {/* Ajustar margen si es necesario */}
