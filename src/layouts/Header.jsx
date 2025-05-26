@@ -13,6 +13,7 @@ function Header() {
   const dropdownRefs = useRef([]);
 
   const navStructure = [
+    /*
     {
       name: 'Oficios',
       isCategory: true,
@@ -21,6 +22,7 @@ function Header() {
         { name: 'Back', path: '/back' },
       ],
     },
+    */
     {
       name: 'Gemelares',
       isCategory: true,

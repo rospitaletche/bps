@@ -17,7 +17,7 @@ function App() {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
       <Routes>
-        <Route path="/" element={<PdfProcessorPage />} />
+        <Route path="/" element={<CalculadoraPage />} />
         <Route path="/back" element={<BackPage />} />
         <Route path="/calculadora-prestaciones" element={<CalculadoraPage />} />
         <Route path="/gemelares/automatico" element={<GemelaresAutomaticoPage />} />
