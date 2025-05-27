@@ -22,6 +22,7 @@ function App() {
         <Route path="/calculadora-prestaciones" element={<CalculadoraPage />} />
         <Route path="/gemelares/automatico" element={<GemelaresAutomaticoPage />} />
         <Route path="/_debug/access-logs" element={<AccessLogsPage />} />
+        <Route path="/oficios" element={<PdfProcessorPage />} />
       </Routes>
       <Footer />
     </div>
