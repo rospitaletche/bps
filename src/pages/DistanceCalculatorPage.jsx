@@ -7,7 +7,7 @@ import Papa from 'papaparse';
 import SectionCard from '../components/SectionCard.jsx';
 import Button from '../components/Button.jsx';
 import { getDistanceFromLatLonInKm } from '../utils/geoUtils.js';
-import { getDrivingDistance } from '../services/googleMapsService.js';
+import { getDrivingDistanceViaBackend } from '../services/apiService.js'; // CAMBIADO
 
 function FileInputSection({ title, fileData, onFileChange }) {
   const { headers, latCol, lonCol, file } = fileData;
@@ -70,11 +70,10 @@ function DistanceCalculatorPage() {
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
   
-  const [apiKey, setApiKey] = useState('');
   const [isCalculatingGoogle, setIsCalculatingGoogle] = useState(false);
   const [googleApiResults, setGoogleApiResults] = useState([]);
   const [googleApiError, setGoogleApiError] = useState('');
-  const [preflightCheckData, setPreflightCheckData] = useState([]);
+  const [finalLocals, setFinalLocals] = useState({ cercanos: [], lejanos: [] });
 
   const getCoords = (row, latCol, lonCol) => {
     if (!row) return { lat: NaN, lng: NaN };
@@ -106,77 +105,46 @@ function DistanceCalculatorPage() {
     setError('');
     setResults(null);
     setGoogleApiResults([]);
-    setPreflightCheckData([]);
+    setFinalLocals({ cercanos: [], lejanos: [] });
     if (!localesFile.file || !puntosFile.file || !localesFile.latCol || !localesFile.lonCol) {
       setError('Por favor, cargue ambos archivos y seleccione las columnas de coordenadas.');
       return;
     }
-
     setIsProcessing(true);
-    
     setTimeout(() => {
-      const localesData = localesFile.data;
-      const puntosData = puntosFile.data;
-      
-      const processedLocales = localesData.map((local) => {
+      const processedLocales = localesFile.data.map((local) => {
         const { lat: localLat, lng: localLng } = getCoords(local, localesFile.latCol, localesFile.lonCol);
         let minDistance = Infinity;
         let nearestPoint = null;
-
-        if (isNaN(localLat) || isNaN(localLng)) {
-            return { ...local, minDistance: Infinity, nearestPointInfo: 'Coordenadas del local inválidas' };
-        }
-
-        puntosData.forEach((punto) => {
-          const { lat: puntoLat, lng: puntoLng } = getCoords(punto, puntosFile.latCol, puntosFile.lonCol);
-          if (!isNaN(puntoLat) && !isNaN(puntoLng)) {
+        if (!isNaN(localLat) && !isNaN(localLng)) {
+          puntosFile.data.forEach((punto) => {
+            const { lat: puntoLat, lng: puntoLng } = getCoords(punto, puntosFile.latCol, puntosFile.lonCol);
+            if (!isNaN(puntoLat) && !isNaN(puntoLng)) {
               const d = getDistanceFromLatLonInKm(localLat, localLng, puntoLat, puntoLng);
               if (d < minDistance) {
                 minDistance = d;
                 nearestPoint = punto;
               }
-          }
-        });
+            }
+          });
+        }
         return { ...local, minDistance, nearestPointInfo: nearestPoint };
       });
-
       const localesCercanos = processedLocales.filter(l => l.minDistance <= distance);
       const localesLejanos = processedLocales.filter(l => l.minDistance > distance);
-      
       setResults({ cercanos: localesCercanos, lejanos: localesLejanos });
       setIsProcessing(false);
     }, 500);
   };
   
-  const handlePreflightCheck = () => {
-      if (!results || results.cercanos.length === 0) return;
-      setGoogleApiError('');
-      const checkData = [];
-      const localesToProcess = results.cercanos.slice(0, 10);
-      for (const local of localesToProcess) {
-          const originCoords = getCoords(local, localesFile.latCol, localesFile.lonCol);
-          const destinationCoords = getCoords(local.nearestPointInfo, puntosFile.latCol, puntosFile.lonCol);
-          checkData.push({
-              name: local.name || Object.values(local)[0],
-              originLat: originCoords.lat,
-              originLon: originCoords.lng,
-              destName: local.nearestPointInfo?.name || Object.values(local.nearestPointInfo)[0],
-              destLat: destinationCoords.lat,
-              destLon: destinationCoords.lng
-          });
-      }
-      setPreflightCheckData(checkData);
-  };
-
   const handleGoogleApiCalculate = async () => {
-    if (!apiKey) { setGoogleApiError("Por favor, ingrese una clave de API de Google Maps."); return; }
-    if (preflightCheckData.length === 0) { setGoogleApiError("Realice la pre-verificación primero."); return; }
+    if (!results || results.cercanos.length === 0) { setGoogleApiError("No hay locales cercanos para analizar. Realice primero el cálculo manual."); return; }
     
     setIsCalculatingGoogle(true);
     setGoogleApiError('');
     setGoogleApiResults([]);
     
-    const localesToProcess = results.cercanos.slice(0, 10);
+    const localesToProcess = results.cercanos;
     const apiResults = [];
 
     for (const local of localesToProcess) {
@@ -188,11 +156,25 @@ function DistanceCalculatorPage() {
         continue;
       }
 
-      const result = await getDrivingDistance(originCoords, destinationCoords, apiKey);
-      apiResults.push({ ...local, googleDistance: result.distance || result.error, googleDuration: result.duration || '' });
+      const { data, error } = await getDrivingDistanceViaBackend(originCoords, destinationCoords);
+      
+      if(error) {
+        apiResults.push({ ...local, googleDistance: 'Error Backend', googleDuration: error });
+      } else {
+        apiResults.push({ ...local, googleDistance: data.distance || 'Error', googleDuration: data.duration || '' });
+      }
     }
 
     setGoogleApiResults(apiResults);
+    
+    const googleCercanos = apiResults.filter(res => {
+        const distKm = parseFloat(res.googleDistance);
+        return !isNaN(distKm) && distKm <= distance;
+    });
+    const googleCercanosNames = new Set(googleCercanos.map(l => l.name));
+    const googleLejanos = localesFile.data.filter(l => !googleCercanosNames.has(l.name));
+    setFinalLocals({ cercanos: googleCercanos, lejanos: googleLejanos });
+
     setIsCalculatingGoogle(false);
   };
   
@@ -220,14 +202,12 @@ function DistanceCalculatorPage() {
           <FileInputSection title="Archivo de Locales de Pago" fileData={localesFile} onFileChange={setLocalesFile} />
           <FileInputSection title="Archivo de Cajeros/Puntos de Interés" fileData={puntosFile} onFileChange={setPuntosFile} />
         </div>
-
         <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
           <label htmlFor="distance" className="block text-sm font-medium text-gray-700 mb-1">
             Distancia máxima para considerar "cercano" (en kilómetros)
           </label>
           <input type="number" id="distance" value={distance} onChange={(e) => setDistance(Number(e.target.value))} className="mt-1 block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"/>
         </div>
-        
         <div className="text-center">
           <Button onClick={handleCalculate} disabled={isCalcButtonDisabled}>
             {isProcessing ? <><i className="fas fa-spinner fa-spin mr-2"></i>Calculando...</> : <>Paso 1: Calcular Distancias Manualmente</>}
@@ -239,108 +219,37 @@ function DistanceCalculatorPage() {
       {results && (
         <SectionCard title="Resultados del Análisis">
             <div className="mb-6">
-                <h3 className="text-lg font-semibold text-secondary mb-2">Locales Cercanos ({results.cercanos.length} encontrados)</h3>
-                <p className="text-sm text-gray-600 mb-4">Locales que se encuentran a {distance} km o menos (en línea recta) de un punto de interés.</p>
+                <h3 className="text-lg font-semibold text-secondary mb-2">Paso 1: Locales Cercanos (Cálculo Manual)</h3>
+                <p className="text-sm text-gray-600 mb-4">Locales que se encuentran a {distance} km o menos (en línea recta) de un punto de interés. Total: {results.cercanos.length}</p>
                 <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg max-h-96 overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Localización (Name)</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Mínima (km)</th>
-                            </tr>
-                        </thead>
+                        <thead className="bg-gray-50 sticky top-0"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Localización (Name)</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Mínima (km)</th></tr></thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {results.cercanos.length > 0 ? results.cercanos.map((local, index) => (
-                                <tr key={index}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{local.name || Object.values(local)[0]}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{local.minDistance.toFixed(2)}</td>
-                                </tr>
-                            )) : (
-                                <tr><td colSpan="2" className="px-6 py-4 text-center text-gray-500">No se encontraron locales cercanos.</td></tr>
-                            )}
+                                <tr key={index}><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{local.name || Object.values(local)[0]}</td><td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{local.minDistance.toFixed(2)}</td></tr>
+                            )) : (<tr><td colSpan="2" className="px-6 py-4 text-center text-gray-500">No se encontraron locales cercanos.</td></tr>)}
                         </tbody>
                     </table>
                 </div>
-                <div className="mt-4">
-                    <Button onClick={() => downloadCSV(results.cercanos, 'locales_cercanos.csv')} variant="primary" disabled={results.cercanos.length === 0}>
-                        <i className="fas fa-download mr-2"></i>Descargar Lista de Locales Cercanos
-                    </Button>
-                </div>
-            </div>
-            
-            <div className="pt-6 border-t border-gray-200">
-                <h3 className="text-lg font-semibold text-secondary mb-2">Locales Lejanos ({results.lejanos.length} encontrados)</h3>
-                <p className="text-sm text-gray-600 mb-4">Locales que se encuentran a más de {distance} km del punto de interés más cercano.</p>
-                <Button onClick={() => downloadCSV(results.lejanos, 'locales_lejanos.csv')} variant="secondary" disabled={results.lejanos.length === 0}>
-                    <i className="fas fa-download mr-2"></i>Descargar Lista de Locales Lejanos
-                </Button>
             </div>
             
             <div className="pt-6 border-t-2 border-dashed border-primary mt-6">
-                <h3 className="text-lg font-semibold text-secondary mb-2">Análisis con Google Maps API</h3>
-                <p className="text-sm text-gray-600 mb-4">Verifique las coordenadas antes de realizar el costoso cálculo con la API de Google.</p>
-                <div className="mb-4">
-                    <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 mb-1">Clave de API de Google Maps</label>
-                    <input type="password" id="apiKey" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Ingrese su clave de API aquí" className="mt-1 block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"/>
-                </div>
-                
-                <Button onClick={handlePreflightCheck} disabled={isCalculatingGoogle || results.cercanos.length === 0}>
-                    <i className="fas fa-search-location mr-2"></i>Paso 2: Pre-verificar Coordenadas (Top 10)
+                <h3 className="text-lg font-semibold text-secondary mb-2">Paso 2: Calcular Distancias Exactas (vía Backend)</h3>
+                <p className="text-sm text-gray-600 mb-4">Esto calculará la distancia de manejo para los {results.cercanos.length} locales cercanos encontrados.</p>
+                <Button onClick={handleGoogleApiCalculate} disabled={isCalculatingGoogle || results.cercanos.length === 0}>
+                    {isCalculatingGoogle ? <><i className="fas fa-spinner fa-spin mr-2"></i>Calculando...</> : <><i className="fab fa-google mr-2"></i>Calcular Distancias de Manejo</>}
                 </Button>
-
-                {preflightCheckData.length > 0 && (
-                    <div className="mt-6">
-                        <h4 className="font-semibold text-gray-800 mb-2">Tabla de Pre-verificación</h4>
-                        <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-200 text-xs">
-                                <thead className="bg-gray-50"><tr>
-                                    <th className="px-2 py-2 text-left font-medium">Local</th><th className="px-2 py-2 text-left font-medium">Origen Lat</th><th className="px-2 py-2 text-left font-medium">Origen Lon</th>
-                                    <th className="px-2 py-2 text-left font-medium">Destino Lat</th><th className="px-2 py-2 text-left font-medium">Destino Lon</th>
-                                </tr></thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {preflightCheckData.map((d, i) => (
-                                        <tr key={i}>
-                                            <td className="px-2 py-2">{d.name}</td>
-                                            <td className={`px-2 py-2 font-mono ${isNaN(d.originLat) ? 'text-red-500' : ''}`}>{String(d.originLat)}</td>
-                                            <td className={`px-2 py-2 font-mono ${isNaN(d.originLon) ? 'text-red-500' : ''}`}>{String(d.originLon)}</td>
-                                            <td className={`px-2 py-2 font-mono ${isNaN(d.destLat) ? 'text-red-500' : ''}`}>{String(d.destLat)}</td>
-                                            <td className={`px-2 py-2 font-mono ${isNaN(d.destLon) ? 'text-red-500' : ''}`}>{String(d.destLon)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="mt-4">
-                            <Button onClick={handleGoogleApiCalculate} disabled={isCalculatingGoogle || !apiKey}>
-                                {isCalculatingGoogle ? <><i className="fas fa-spinner fa-spin mr-2"></i>Calculando...</> : <><i className="fab fa-google mr-2"></i>Paso 3: Calcular Distancias de Manejo</>}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-                
                 {googleApiError && <p className="mt-2 text-red-600 text-sm">{googleApiError}</p>}
 
                 {googleApiResults.length > 0 && (
-                     <div className="mt-6">
-                        <h4 className="font-semibold text-gray-800 mb-2">Resultados de Google Distance Matrix</h4>
-                        <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg">
+                    <div className="mt-6">
+                        <h4 className="font-semibold text-gray-800 mb-2">Resultados de Google</h4>
+                        <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg max-h-96 overflow-y-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Aérea</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia en Auto</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo en Auto</th>
-                                    </tr>
-                                </thead>
+                                <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Aérea</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia en Auto</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo en Auto</th></tr></thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {googleApiResults.map((res, index) => (
-                                        <tr key={index}>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{res.name || Object.values(res)[0]}</td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.minDistance.toFixed(2)} km</td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">{res.googleDistance}</td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.googleDuration}</td>
-                                        </tr>
+                                        <tr key={index}><td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{res.name || Object.values(res)[0]}</td><td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.minDistance.toFixed(2)} km</td><td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">{res.googleDistance}</td><td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.googleDuration}</td></tr>
                                     ))}
                                 </tbody>
                             </table>
@@ -348,6 +257,16 @@ function DistanceCalculatorPage() {
                     </div>
                 )}
             </div>
+
+            {finalLocals.lejanos.length > 0 && (
+                 <div className="pt-6 border-t-2 border-dashed border-green-500 mt-6">
+                    <h3 className="text-lg font-semibold text-secondary mb-2">Paso 3: Exportación Final</h3>
+                    <p className="text-sm text-gray-600 mb-4">Se han identificado {finalLocals.lejanos.length} locales que NO cumplen la condición de distancia de manejo de {distance} km.</p>
+                    <Button onClick={() => downloadCSV(finalLocals.lejanos, 'locales_finales_no_cumplen.csv')} variant="primary">
+                        <i className="fas fa-download mr-2"></i>Descargar Lista Final de Locales que NO Cumplen
+                    </Button>
+                </div>
+            )}
         </SectionCard>
       )}
     </main>

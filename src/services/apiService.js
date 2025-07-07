@@ -142,3 +142,24 @@ export async function getAccessLogsApi(skip = 0, limit = 100) {
         return { data: [], error: error.message || "Error desconocido al obtener logs de acceso." };
     }
 }
+
+/**
+ * Llama al backend para que este calcule la distancia de manejo usando la API de Google.
+ * @param {{lat: number, lng: number}} origin - Coordenadas de origen.
+ * @param {{lat: number, lng: number}} destination - Coordenadas de destino.
+ * @returns {Promise<object>} - Un objeto { data: ..., error: ... }
+ */
+export async function getDrivingDistanceViaBackend(origin, destination) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/geo/distance-matrix`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ origin, destination }),
+        });
+        const data = await handleResponse(response);
+        return { data, error: null };
+    } catch (error) {
+        console.error("Error en getDrivingDistanceViaBackend:", error);
+        return { data: null, error: error.message || "Error al contactar el backend para calcular la distancia." };
+    }
+}
