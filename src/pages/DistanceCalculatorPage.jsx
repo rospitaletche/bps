@@ -4,6 +4,8 @@
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable'; // CORREGIDO: Importar de esta manera
 import SectionCard from '../components/SectionCard.jsx';
 import Button from '../components/Button.jsx';
 import { getDistanceFromLatLonInKm } from '../utils/geoUtils.js';
@@ -74,7 +76,7 @@ function DistanceCalculatorPage() {
   const [googleApiResults, setGoogleApiResults] = useState([]);
   const [googleApiError, setGoogleApiError] = useState('');
   const [selectedGoogleRows, setSelectedGoogleRows] = useState(new Set());
-  const [finalLocals, setFinalLocals] = useState({ cercanos: [], lejanos: [] }); // CORRECCIÓN: Estado declarado
+  const [finalLocals, setFinalLocals] = useState({ cercanos: [], lejanos: [] });
 
   const getCoords = (row, latCol, lonCol) => {
     if (!row) return { lat: NaN, lng: NaN };
@@ -215,6 +217,35 @@ function DistanceCalculatorPage() {
       setSelectedGoogleRows(newSelection);
   };
 
+  const handleExportPdf = () => {
+    if (!googleApiResults || googleApiResults.length === 0) return;
+
+    const doc = new jsPDF();
+    doc.text("Resultados de Distancia (Google Maps)", 14, 15);
+
+    const tableColumn = ["Local", "Distancia Aérea", "Distancia en Auto", "Tiempo en Auto"];
+    const tableRows = [];
+
+    googleApiResults.forEach(res => {
+        const rowData = [
+            res.name || Object.values(res)[0],
+            `${res.minDistance.toFixed(2)} km`,
+            res.googleDistance,
+            res.googleDuration
+        ];
+        tableRows.push(rowData);
+    });
+
+    // CORREGIDO: Llamar a autoTable como una función
+    autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 20,
+    });
+
+    doc.save('resultados_distancia_google.pdf');
+  };
+
   const isCalcButtonDisabled = isProcessing || !localesFile.file || !puntosFile.file;
 
   return (
@@ -290,9 +321,12 @@ function DistanceCalculatorPage() {
                                 </tbody>
                             </table>
                         </div>
-                        <div className="mt-4">
+                        <div className="mt-4 flex space-x-3">
                             <Button onClick={() => downloadCSV(googleApiResults.filter(l => selectedGoogleRows.has(l.name || Object.values(l)[0])), 'locales_seleccionados_google.csv')} variant="primary" disabled={selectedGoogleRows.size === 0}>
                                 <i className="fas fa-download mr-2"></i>Descargar Seleccionados ({selectedGoogleRows.size})
+                            </Button>
+                            <Button onClick={handleExportPdf} variant="danger" disabled={googleApiResults.length === 0}>
+                                <i className="fas fa-file-pdf mr-2"></i>Exportar a PDF
                             </Button>
                         </div>
                     </div>
