@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/pages/DistanceCalculatorPage.jsx (CORRECCIÓN FINAL) */
+/* Archivo: frontend/src/pages/DistanceCalculatorPage.jsx (CORREGIDO)        */
 /* ========================================================================== */
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -7,7 +7,7 @@ import Papa from 'papaparse';
 import SectionCard from '../components/SectionCard.jsx';
 import Button from '../components/Button.jsx';
 import { getDistanceFromLatLonInKm } from '../utils/geoUtils.js';
-import { getDrivingDistanceViaBackend } from '../services/apiService.js'; // CAMBIADO
+import { getDrivingDistanceViaBackend } from '../services/apiService.js';
 
 function FileInputSection({ title, fileData, onFileChange }) {
   const { headers, latCol, lonCol, file } = fileData;
@@ -73,7 +73,8 @@ function DistanceCalculatorPage() {
   const [isCalculatingGoogle, setIsCalculatingGoogle] = useState(false);
   const [googleApiResults, setGoogleApiResults] = useState([]);
   const [googleApiError, setGoogleApiError] = useState('');
-  const [finalLocals, setFinalLocals] = useState({ cercanos: [], lejanos: [] });
+  const [selectedGoogleRows, setSelectedGoogleRows] = useState(new Set());
+  const [finalLocals, setFinalLocals] = useState({ cercanos: [], lejanos: [] }); // CORRECCIÓN: Estado declarado
 
   const getCoords = (row, latCol, lonCol) => {
     if (!row) return { lat: NaN, lng: NaN };
@@ -105,6 +106,7 @@ function DistanceCalculatorPage() {
     setError('');
     setResults(null);
     setGoogleApiResults([]);
+    setSelectedGoogleRows(new Set());
     setFinalLocals({ cercanos: [], lejanos: [] });
     if (!localesFile.file || !puntosFile.file || !localesFile.latCol || !localesFile.lonCol) {
       setError('Por favor, cargue ambos archivos y seleccione las columnas de coordenadas.');
@@ -143,6 +145,7 @@ function DistanceCalculatorPage() {
     setIsCalculatingGoogle(true);
     setGoogleApiError('');
     setGoogleApiResults([]);
+    setSelectedGoogleRows(new Set());
     
     const localesToProcess = results.cercanos;
     const apiResults = [];
@@ -180,7 +183,7 @@ function DistanceCalculatorPage() {
   
   const downloadCSV = (data, filename) => {
     if (!data || data.length === 0) return;
-    const dataToExport = data.map(({minDistance, nearestPointInfo, ...rest}) => rest);
+    const dataToExport = data.map(({minDistance, nearestPointInfo, googleDistance, googleDuration, ...rest}) => rest);
     const csv = Papa.unparse(dataToExport);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -191,6 +194,25 @@ function DistanceCalculatorPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+  
+  const handleSelectAllGoogle = (e) => {
+      if (e.target.checked) {
+          const allIds = new Set(googleApiResults.map(l => l.name || Object.values(l)[0]));
+          setSelectedGoogleRows(allIds);
+      } else {
+          setSelectedGoogleRows(new Set());
+      }
+  };
+
+  const handleSelectRowGoogle = (id) => {
+      const newSelection = new Set(selectedGoogleRows);
+      if (newSelection.has(id)) {
+          newSelection.delete(id);
+      } else {
+          newSelection.add(id);
+      }
+      setSelectedGoogleRows(newSelection);
   };
 
   const isCalcButtonDisabled = isProcessing || !localesFile.file || !puntosFile.file;
@@ -246,13 +268,32 @@ function DistanceCalculatorPage() {
                         <h4 className="font-semibold text-gray-800 mb-2">Resultados de Google</h4>
                         <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg max-h-96 overflow-y-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Aérea</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia en Auto</th><th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo en Auto</th></tr></thead>
+                                <thead className="bg-gray-50"><tr>
+                                    <th className="px-4 py-3 w-10"><input type="checkbox" onChange={handleSelectAllGoogle} checked={googleApiResults.length > 0 && selectedGoogleRows.size === googleApiResults.length} className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"/></th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Local</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Aérea</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia en Auto</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo en Auto</th>
+                                </tr></thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {googleApiResults.map((res, index) => (
-                                        <tr key={index}><td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{res.name || Object.values(res)[0]}</td><td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.minDistance.toFixed(2)} km</td><td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">{res.googleDistance}</td><td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.googleDuration}</td></tr>
-                                    ))}
+                                    {googleApiResults.map((res, index) => {
+                                        const id = res.name || Object.values(res)[0];
+                                        return (
+                                        <tr key={index}>
+                                            <td className="px-4 py-4"><input type="checkbox" checked={selectedGoogleRows.has(id)} onChange={() => handleSelectRowGoogle(id)} className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"/></td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-800">{id}</td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.minDistance.toFixed(2)} km</td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">{res.googleDistance}</td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{res.googleDuration}</td>
+                                        </tr>
+                                    )})}
                                 </tbody>
                             </table>
+                        </div>
+                        <div className="mt-4">
+                            <Button onClick={() => downloadCSV(googleApiResults.filter(l => selectedGoogleRows.has(l.name || Object.values(l)[0])), 'locales_seleccionados_google.csv')} variant="primary" disabled={selectedGoogleRows.size === 0}>
+                                <i className="fas fa-download mr-2"></i>Descargar Seleccionados ({selectedGoogleRows.size})
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -260,9 +301,9 @@ function DistanceCalculatorPage() {
 
             {finalLocals.lejanos.length > 0 && (
                  <div className="pt-6 border-t-2 border-dashed border-green-500 mt-6">
-                    <h3 className="text-lg font-semibold text-secondary mb-2">Paso 3: Exportación Final</h3>
+                    <h3 className="text-lg font-semibold text-secondary mb-2">Paso 3: Exportación Final de Locales que NO Cumplen</h3>
                     <p className="text-sm text-gray-600 mb-4">Se han identificado {finalLocals.lejanos.length} locales que NO cumplen la condición de distancia de manejo de {distance} km.</p>
-                    <Button onClick={() => downloadCSV(finalLocals.lejanos, 'locales_finales_no_cumplen.csv')} variant="primary">
+                    <Button onClick={() => downloadCSV(finalLocals.lejanos, 'locales_finales_no_cumplen.csv')} variant="secondary">
                         <i className="fas fa-download mr-2"></i>Descargar Lista Final de Locales que NO Cumplen
                     </Button>
                 </div>
