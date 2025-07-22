@@ -1,11 +1,12 @@
 /* ========================================================================== */
-/* Archivo: frontend/src/pages/DistanceCalculatorPage.jsx (CORREGIDO)        */
+/* Archivo: frontend/src/pages/DistanceCalculatorPage.jsx (EXPORTAR EXCEL)   */
 /* ========================================================================== */
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable'; // CORREGIDO: Importar de esta manera
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx'; // Importar la librería para Excel
 import SectionCard from '../components/SectionCard.jsx';
 import Button from '../components/Button.jsx';
 import { getDistanceFromLatLonInKm } from '../utils/geoUtils.js';
@@ -219,13 +220,10 @@ function DistanceCalculatorPage() {
 
   const handleExportPdf = () => {
     if (!googleApiResults || googleApiResults.length === 0) return;
-
     const doc = new jsPDF();
     doc.text("Resultados de Distancia (Google Maps)", 14, 15);
-
     const tableColumn = ["Local", "Distancia Aérea", "Distancia en Auto", "Tiempo en Auto"];
     const tableRows = [];
-
     googleApiResults.forEach(res => {
         const rowData = [
             res.name || Object.values(res)[0],
@@ -235,15 +233,22 @@ function DistanceCalculatorPage() {
         ];
         tableRows.push(rowData);
     });
-
-    // CORREGIDO: Llamar a autoTable como una función
-    autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 20,
-    });
-
+    autoTable(doc, { head: [tableColumn], body: tableRows, startY: 20 });
     doc.save('resultados_distancia_google.pdf');
+  };
+
+  const handleExportExcel = () => {
+    if (!googleApiResults || googleApiResults.length === 0) return;
+    const dataForExport = googleApiResults.map(res => ({
+        'Local': res.name || Object.values(res)[0],
+        'Distancia Aérea (km)': res.minDistance.toFixed(2),
+        'Distancia en Auto': res.googleDistance,
+        'Tiempo en Auto': res.googleDuration
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataForExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Resultados");
+    XLSX.writeFile(workbook, "resultados_distancia_google.xlsx");
   };
 
   const isCalcButtonDisabled = isProcessing || !localesFile.file || !puntosFile.file;
@@ -274,7 +279,7 @@ function DistanceCalculatorPage() {
             <div className="mb-6">
                 <h3 className="text-lg font-semibold text-secondary mb-2">Paso 1: Locales Cercanos (Cálculo Manual)</h3>
                 <p className="text-sm text-gray-600 mb-4">Locales que se encuentran a {distance} km o menos (en línea recta) de un punto de interés. Total: {results.cercanos.length}</p>
-                <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg max-h-96 overflow-y-auto">
+                 <div className="overflow-x-auto shadow border-b border-gray-200 sm:rounded-lg max-h-96 overflow-y-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Localización (Name)</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Distancia Mínima (km)</th></tr></thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -327,6 +332,9 @@ function DistanceCalculatorPage() {
                             </Button>
                             <Button onClick={handleExportPdf} variant="danger" disabled={googleApiResults.length === 0}>
                                 <i className="fas fa-file-pdf mr-2"></i>Exportar a PDF
+                            </Button>
+                            <Button onClick={handleExportExcel} variant="success" disabled={googleApiResults.length === 0}>
+                                <i className="fas fa-file-excel mr-2"></i>Exportar a Excel
                             </Button>
                         </div>
                     </div>
