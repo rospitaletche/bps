@@ -9,6 +9,7 @@ import GemelaresAutomaticoPage from './pages/GemelaresAutomaticoPage.jsx';
 import AccessLogsPage from './pages/AccessLogsPage.jsx';
 import GeocodingPage from './pages/GeocodingPage.jsx';
 import DistanceCalculatorPage from './pages/DistanceCalculatorPage.jsx'; // Importar nueva página
+import FileDistributorPage from './pages/FileDistributorPage.jsx';
 
 function App() {
   return (
@@ -21,8 +22,8 @@ function App() {
         <Route path="/gemelares/automatico" element={<GemelaresAutomaticoPage />} />
         <Route path="/_debug/access-logs" element={<AccessLogsPage />} />
         <Route path="/analisis-geo/geocodificador" element={<GeocodingPage />} />
-        {/* Nueva ruta para la calculadora de distancias */}
         <Route path="/analisis-geo/calculo-distancia" element={<DistanceCalculatorPage />} />
+        <Route path="/herramientas/distribuidor" element={<FileDistributorPage />} />
       </Routes>
       <Footer />
     </div>
