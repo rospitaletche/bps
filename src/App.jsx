@@ -8,8 +8,9 @@ import CalculadoraPage from './pages/CalculadoraPage.jsx';
 import GemelaresAutomaticoPage from './pages/GemelaresAutomaticoPage.jsx';
 import AccessLogsPage from './pages/AccessLogsPage.jsx';
 import GeocodingPage from './pages/GeocodingPage.jsx';
-import DistanceCalculatorPage from './pages/DistanceCalculatorPage.jsx'; // Importar nueva página
+import DistanceCalculatorPage from './pages/DistanceCalculatorPage.jsx';
 import FileDistributorPage from './pages/FileDistributorPage.jsx';
+import AuthorizationsPage from './pages/AuthorizationsPage.jsx'; // Importar nueva página
 
 function App() {
   return (
@@ -23,7 +24,8 @@ function App() {
         <Route path="/_debug/access-logs" element={<AccessLogsPage />} />
         <Route path="/analisis-geo/geocodificador" element={<GeocodingPage />} />
         <Route path="/analisis-geo/calculo-distancia" element={<DistanceCalculatorPage />} />
-        <Route path="/herramientas/distribuidor" element={<FileDistributorPage />} />
+        <Route path="/afiliaciones/distribuidor" element={<FileDistributorPage />} />
+        <Route path="/afiliaciones/autorizaciones" element={<AuthorizationsPage />} />
       </Routes>
       <Footer />
     </div>

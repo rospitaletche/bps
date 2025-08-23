@@ -1,6 +1,3 @@
-/* ========================================================================== */
-/* Archivo: frontend/src/layouts/Header.jsx (ACTUALIZADO CON NUEVO ENLACE)   */
-/* ========================================================================== */
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -22,12 +19,12 @@ function Header() {
         { name: 'Cálculo de Distancia', path: '/analisis-geo/calculo-distancia' },
       ],
     },
-    // Nueva Categoría
     {
-      name: 'Herramientas',
+      name: 'Afiliaciones', // Cambiado de "Herramientas"
       isCategory: true,
       subLinks: [
-        { name: 'Distribuidor de Tareas', path: '/herramientas/distribuidor' },
+        { name: 'Distribuidor de Tareas', path: '/afiliaciones/distribuidor' },
+        { name: 'Autorizaciones', path: '/afiliaciones/autorizaciones' }, // Nuevo enlace
       ],
     },
   ];
