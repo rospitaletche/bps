@@ -9,9 +9,14 @@ const availableUsers = [
   'Manuela', 'Maria', 'Matias', 'Ricardo'
 ];
 
-// Constantes para las columnas de filtrado para evitar errores de tipeo
-const DESTINATION_COLUMN = 'Localidad / Departamento de destino';
+// Constantes para las columnas
 const RESOLUTION_COLUMN = 'Resol. Junasa';
+const POSSIBLE_DESTINATION_COLUMNS = [
+    'Localidad / Departamento de destino',
+    'LOCALIDAD DE DESTINO',
+    'Localidad'
+];
+
 
 function FileDistributorPage() {
   const [file, setFile] = useState(null);
@@ -51,6 +56,7 @@ function FileDistributorPage() {
             const obj = {};
             foundHeaders.forEach((header, i) => {
               let cellValue = row[i];
+              // Formatear fechas de JS a string dd/mm/yyyy
               if (cellValue instanceof Date) {
                 cellValue = cellValue.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
               }
@@ -60,9 +66,13 @@ function FileDistributorPage() {
           });
 
           const filteredData = jsonData.filter(row => {
-            const destination = row[DESTINATION_COLUMN];
+            // Lógica de filtrado flexible para la columna de destino
+            const destinationColumnKey = POSSIBLE_DESTINATION_COLUMNS.find(col => row.hasOwnProperty(col));
+            const destination = destinationColumnKey ? row[destinationColumnKey] : undefined;
+            
             const resolution = row[RESOLUTION_COLUMN];
             
+            // Ignorar filas completamente vacías
             const hasData = Object.values(row).some(val => val !== undefined && val !== null && val !== '');
             if (!hasData) return false;
 
