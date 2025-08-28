@@ -9,6 +9,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
     <title>BPS Frontend</title>
+    <!-- Polyfill para navegadores sin Promise.withResolvers (Firefox < 121) -->
+<script>
+if (typeof Promise.withResolvers !== 'function') {
+  Promise.withResolvers = function () {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  };
+}
+</script>
+
     <script type="module" crossorigin src="/bps/assets/index-BnbbmlOO.js"></script>
     <link rel="stylesheet" crossorigin href="/bps/assets/index-BmKLhlAW.css">
   </head>
