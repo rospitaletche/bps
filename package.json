@@ -24,6 +24,7 @@
     "jspdf-autotable": "^5.0.2",
     "jszip": "^3.10.1",
     "papaparse": "^5.5.3",
+    "pdfjs-dist": "^5.4.54",
     "react": "^19.0.0",
     "react-day-picker": "^9.6.7",
     "react-dom": "^19.0.0",

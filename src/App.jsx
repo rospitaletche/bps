@@ -10,7 +10,8 @@ import AccessLogsPage from './pages/AccessLogsPage.jsx';
 import GeocodingPage from './pages/GeocodingPage.jsx';
 import DistanceCalculatorPage from './pages/DistanceCalculatorPage.jsx';
 import FileDistributorPage from './pages/FileDistributorPage.jsx';
-import AuthorizationsPage from './pages/AuthorizationsPage.jsx'; // Importar nueva página
+import AuthorizationsPage from './pages/AuthorizationsPage.jsx';
+import ExpedientesPage from './pages/ExpedientesPage.jsx'; // Importar nueva página
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path="/analisis-geo/calculo-distancia" element={<DistanceCalculatorPage />} />
         <Route path="/afiliaciones/distribuidor" element={<FileDistributorPage />} />
         <Route path="/afiliaciones/autorizaciones" element={<AuthorizationsPage />} />
+        <Route path="/afiliaciones/expedientes" element={<ExpedientesPage />} /> 
       </Routes>
       <Footer />
     </div>

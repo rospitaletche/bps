@@ -9,6 +9,15 @@ function Header() {
   const dropdownRefs = useRef([]);
 
   const navStructure = [
+    {
+      name: 'Afiliaciones',
+      isCategory: true,
+      subLinks: [
+        { name: 'Distribuidor de Tareas', path: '/afiliaciones/distribuidor' },
+        { name: 'Autorizaciones', path: '/afiliaciones/autorizaciones' },
+        { name: 'Expedientes', path: '/afiliaciones/expedientes' }, // Nuevo enlace
+      ],
+    },
     { name: 'Oficios', isCategory: true, subLinks: [ { name: 'Front', path: '/' }, { name: 'Back', path: '/back' }, ], },
     { name: 'Gemelares', isCategory: true, subLinks: [ { name: 'Manual', path: '/calculadora-prestaciones' }, { name: 'Automático', path: '/gemelares/automatico' }, ], },
     {
@@ -17,14 +26,6 @@ function Header() {
       subLinks: [
         { name: 'Geocodificador', path: '/analisis-geo/geocodificador' },
         { name: 'Cálculo de Distancia', path: '/analisis-geo/calculo-distancia' },
-      ],
-    },
-    {
-      name: 'Afiliaciones', // Cambiado de "Herramientas"
-      isCategory: true,
-      subLinks: [
-        { name: 'Distribuidor de Tareas', path: '/afiliaciones/distribuidor' },
-        { name: 'Autorizaciones', path: '/afiliaciones/autorizaciones' }, // Nuevo enlace
       ],
     },
   ];
