@@ -23,7 +23,10 @@ const initialExtractedData = {
   nombre: "",
   apellido: "",
   motivo: "",
+  gestionId: "",      // <- nuevo (ej: hlh_prv_chg_22347)
+  gestionNumero: "",  // <- nuevo (ej: 22347)
 };
+
 
 // --- Listas de Verificación ---
 const incumplimientoPlazosChecklist = [
@@ -72,6 +75,8 @@ function ExpedientesPage() {
   const [expedienteNro, setExpedienteNro] = useState("");
   const [checkedItems, setCheckedItems] = useState(new Set());
   const [fojas, setFojas] = useState(INITIAL_FOJAS);
+  const [vtiggerModo, setVtiggerModo] = useState("sucursal"); // 'sucursal' | 'virtual'
+
 
   // Para evitar que al cambiar archivo perdamos accidentalmente el estado sin guardar
   const isDirtyRef = useRef(false);
@@ -324,6 +329,15 @@ function extractDataFromText(text) {
   const motivoRaw = firstMatch(motivoRegexes);
   if (motivoRaw) data.motivo = motivoRaw.replace(/\*/g, "").trim();
 
+  // --- Identificador de la gestión ---
+  const gestMatch = text.match(/Identificador\s*de\s*la\s*gesti[oó]n\s*:\s*([A-Za-z0-9_]+)/i);
+  if (gestMatch && gestMatch[1]) {
+    data.gestionId = gestMatch[1].trim(); // ej: hlh_prv_chg_22347
+    const parts = data.gestionId.split("_");
+    const num = parts.length >= 4 ? parts[3] : (data.gestionId.match(/\d+/)?.[0] || "");
+    data.gestionNumero = (num || "").trim();
+  }
+
   return data;
 }
 
@@ -522,10 +536,24 @@ function extractDataFromText(text) {
     }
   }, [extractedData, fojas, isIncumplimiento]);
 
-  const vtiggerText = useMemo(
-    () => (expedienteNro ? `Se ingresó expediente APIA: ${expedienteNro}. Se da vista al prestador de salud saliente` : ""),
-    [expedienteNro]
-  );
+  const vtiggerFinalText = useMemo(() => {
+  const caso = extractedData.gestionNumero;
+  const exp = (expedienteNro || "").trim();
+
+  const expLine = exp ? `Se ingresó expediente APIA: ${exp}. ` : "";
+
+  if (vtiggerModo === "virtual") {
+    // Virtual: agrega la línea del expediente + texto virtual + (Caso BPMS si existe) + cierre
+    const rest = `${caso ? `Caso BPMS ${caso}. ` : ""}Se dio vista al prestador de salud saliente.`;
+    return `${expLine}Solicita cambio mutual a través de formulario en línea, desde su usuario personal.\n${rest}`;
+  }
+
+  // Sucursal: agrega la línea del expediente + (Caso BPMS si existe) + cierre
+  const rest = `${caso ? `Caso BPMS ${caso}. ` : ""}Se dio vista al prestador de salud saliente.`;
+  return `${expLine}${rest}`;
+}, [extractedData.gestionNumero, vtiggerModo, expedienteNro]);
+
+
 
   const checkedCount = checkedItems.size;
   const totalCount = currentChecklist.length;
@@ -722,9 +750,49 @@ function extractDataFromText(text) {
           {/* CARD 5: VTigger */}
           <SectionCard title="Paso 5: VTigger">
             <div className="space-y-4">
-              <CopyItem label="Texto" textToCopy={vtiggerText} disabled={!expedienteNro} />
+              {/* Nro. de documento arriba, con copia */}
+              <CopyItem
+                label="Nro. de documento"
+                textToCopy={extractedData.nroDocumento}
+                disabled={!extractedData.nroDocumento}
+              />
+
+              {/* Selector de modo */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">Modo</p>
+                <div className="flex items-center gap-6">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="vtiggerMode"
+                      value="sucursal"
+                      checked={vtiggerModo === "sucursal"}
+                      onChange={() => setVtiggerModo("sucursal")}
+                    />
+                    <span>Sucursal</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="vtiggerMode"
+                      value="virtual"
+                      checked={vtiggerModo === "virtual"}
+                      onChange={() => setVtiggerModo("virtual")}
+                    />
+                    <span>Virtual</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Texto (C) según modo, usando Caso BPMS */}
+              <CopyItem
+                label="Texto"
+                textToCopy={vtiggerFinalText}
+                disabled={!extractedData.gestionNumero}
+              />
             </div>
           </SectionCard>
+
         </div>
       )}
     </main>
@@ -812,6 +880,7 @@ function ValidationHints({ data }) {
   if (!data.prestadorActual) issues.push("Falta el prestador actual.");
   if (!data.prestadorNuevo) issues.push("Falta el nuevo prestador.");
   if (!data.nombre || !data.apellido) issues.push("Nombre y apellido incompletos.");
+  if (!data.gestionNumero) issues.push("No se detectó el 'Caso BPMS' (Identificador de la gestión). Revise el PDF.");
 
   if (issues.length === 0)
     return (
