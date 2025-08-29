@@ -224,69 +224,106 @@ function ExpedientesPage() {
       .trim();
   }
 
-  function extractDataFromText(text) {
-    const data = { ...initialExtractedData };
+  // (1) --- Añadí estos helpers arriba (por ejemplo, junto a normalizeText) ---
+const STOP_AFTER_PROVIDER =
+  /\s+(?=doc-|https?:|Apia\b|\S+\.pdf|\d+\s+de\s+\d+|Documentaci[oó]n\b|Datos\b|Usuario\b|Oficina\b|$)/i;
 
-    // Variantes para número de documento
-    const nroDocRegexes = [
-      /Nro\.\s*de\s*documento:\s*(\d[\d\.]*\d)/i,
-      /Documento\s*:\s*(\d[\d\.]*\d)/i,
-      /CI\s*[:\-]?\s*(\d[\d\.]*\d)/i,
-    ];
+function sanitizeProvider(raw) {
+  if (!raw) return "";
+  // quitar asteriscos y espacios raros
+  let s = raw.replace(/\*/g, " ").replace(/\s{2,}/g, " ").trim();
+  // cortar en cuanto aparezca un token "sospechoso"
+  const cut = s.split(STOP_AFTER_PROVIDER)[0] || s;
+  // si quedara muy largo, limita a 3 palabras (evita “arrastres” raros)
+  const words = cut.trim().split(/\s+/);
+  const compact = cut.length > 40 && words.length > 3 ? words.slice(0, 3).join(" ") : cut;
+  return compact.trim();
+}
 
-    const prestadorActualRegexes = [
-      /Prestador\s*de\s*salud\s*actual:\s*(.*?)\s*Nuevo\s*prestador\s*de\s*salud:/is,
-      /Prestador\s*actual\s*:\s*(.*?)\s*(?:Nuevo\s*prestador|Documentación)/is,
-    ];
 
-    const prestadorNuevoRegexes = [
-      /Nuevo\s*prestador\s*de\s*salud:\s*(.*?)\s*(?:Documentación|Motivo|Nombre)/is,
-      /Nuevo\s*prestador\s*:\s*(.*?)\s*(?:Documentación|Motivo|Nombre)/is,
-    ];
+  // (2) --- Reemplazá tu extractDataFromText por esta versión (respeta tus regex previos y agrega los "estrictos") ---
+function extractDataFromText(text) {
+  const data = { ...initialExtractedData };
 
-    const nombreRegexes = [
-      /Nombre:\s*(.*?)\s*Apellido:/is,
-      /Titular:\s*Nombre\s*(.*?)\s*Apellido/is,
-    ];
+  // Variantes para número de documento
+  const nroDocRegexes = [
+    /Nro\.\s*de\s*documento:\s*(\d[\d\.]*\d)/i,
+    /Documento\s*:\s*(\d[\d\.]*\d)/i,
+    /CI\s*[:\-]?\s*(\d[\d\.]*\d)/i,
+  ];
 
-    const apellidoRegexes = [
-      /Apellido:\s*(.*?)\s*(?:Fecha\s*de\s*nacimiento:|Dirección\s*de\s*email:|Correo)/is,
-    ];
+  // Tus regex existentes (fallbacks)
+  const prestadorActualRegexes = [
+    /Prestador\s*de\s*salud\s*actual:\s*(.*?)\s*Nuevo\s*prestador\s*de\s*salud:/is,
+    /Prestador\s*actual\s*:\s*(.*?)\s*(?:Nuevo\s*prestador|Documentación)/is,
+  ];
 
-    const motivoRegexes = [
-      /Motivo\s*de\s*la\s*solicitud:\s*(.*?)\s*(?:Declaración\s*jurada:|Nota\s*de\s*solicitud:|Documentación)/is,
-      /Causal\s*:\s*(.*?)\s*(?:Declaración|Documentación)/is,
-    ];
+  const prestadorNuevoRegexes = [
+    /Nuevo\s*prestador\s*de\s*salud:\s*(.*?)\s*(?:Documentación|Motivo|Nombre)/is,
+    /Nuevo\s*prestador\s*:\s*(.*?)\s*(?:Documentación|Motivo|Nombre)/is,
+  ];
 
-    // Helper para evaluar múltiples regex
-    const firstMatch = (regexes) => {
-      for (const rx of regexes) {
-        const m = text.match(rx);
-        if (m && m[1]) return m[1].toString();
-      }
-      return "";
-    };
+  const nombreRegexes = [
+    /Nombre:\s*(.*?)\s*Apellido:/is,
+    /Titular:\s*Nombre\s*(.*?)\s*Apellido/is,
+  ];
 
-    const nroDocRaw = firstMatch(nroDocRegexes);
-    if (nroDocRaw) data.nroDocumento = nroDocRaw.replace(/\./g, "").trim();
+  const apellidoRegexes = [
+    /Apellido:\s*(.*?)\s*(?:Fecha\s*de\s*nacimiento:|Dirección\s*de\s*email:|Correo)/is,
+  ];
 
+  const motivoRegexes = [
+    /Motivo\s*de\s*la\s*solicitud:\s*(.*?)\s*(?:Declaración\s*jurada:|Nota\s*de\s*solicitud:|Documentación)/is,
+    /Causal\s*:\s*(.*?)\s*(?:Declaración|Documentación)/is,
+  ];
+
+  const firstMatch = (regexes) => {
+    for (const rx of regexes) {
+      const m = text.match(rx);
+      if (m && m[1]) return m[1].toString();
+    }
+    return "";
+  };
+
+  // --- Nro Doc ---
+  const nroDocRaw = firstMatch(nroDocRegexes);
+  if (nroDocRaw) data.nroDocumento = nroDocRaw.replace(/\./g, "").trim();
+
+  // --- Prestador ACTUAL: primero un match "estricto" que corta antes de tokens sospechosos ---
+  const paStrict = text.match(
+    /Prestador\s*de\s*salud\s*actual:\s*\*?\s*([\s\S]*?)(?=\s+(?:Nuevo\s*prestador|Documentaci[oó]n\b|Datos\b|Usuario\b|Oficina\b|\d+\s+de\s+\d+|$))/i
+  );
+  if (paStrict && paStrict[1]) {
+    data.prestadorActual = sanitizeProvider(paStrict[1]);
+  } else {
     const prestadorActualRaw = firstMatch(prestadorActualRegexes);
-    if (prestadorActualRaw) data.prestadorActual = clearArtifacts(prestadorActualRaw);
-
-    const prestadorNuevoRaw = firstMatch(prestadorNuevoRegexes);
-    if (prestadorNuevoRaw) data.prestadorNuevo = clearArtifacts(prestadorNuevoRaw);
-
-    const nombreRaw = firstMatch(nombreRegexes);
-    if (nombreRaw) data.nombre = nombreRaw.replace(/\*/g, "").trim();
-
-    const apellidoRaw = firstMatch(apellidoRegexes);
-    if (apellidoRaw) data.apellido = apellidoRaw.replace(/\*/g, "").trim();
-
-    const motivoRaw = firstMatch(motivoRegexes);
-    if (motivoRaw) data.motivo = motivoRaw.replace(/\*/g, "").trim();
-
-    return data;
+    if (prestadorActualRaw) data.prestadorActual = sanitizeProvider(prestadorActualRaw);
   }
+
+  // --- Prestador NUEVO: igual estrategia "estricta" ---
+  const pnStrict = text.match(
+    /Nuevo\s*prestador\s*(?:de\s*salud)?:\s*\*?\s*([\s\S]*?)(?=\s+(?:doc-|https?:|Apia\b|\S+\.pdf|\d+\s+de\s+\d+|Documentaci[oó]n\b|Datos\b|Usuario\b|Oficina\b)|$)/i
+  );
+  if (pnStrict && pnStrict[1]) {
+    data.prestadorNuevo = sanitizeProvider(pnStrict[1]);
+  } else {
+    const prestadorNuevoRaw = firstMatch(prestadorNuevoRegexes);
+    if (prestadorNuevoRaw) data.prestadorNuevo = sanitizeProvider(prestadorNuevoRaw);
+  }
+
+  // --- Nombre, Apellido, Motivo (como ya tenías) ---
+  const nombreRaw = firstMatch(nombreRegexes);
+  if (nombreRaw) data.nombre = nombreRaw.replace(/\*/g, "").trim();
+
+  const apellidoRaw = firstMatch(apellidoRegexes);
+  if (apellidoRaw) data.apellido = apellidoRaw.replace(/\*/g, "").trim();
+
+  const motivoRaw = firstMatch(motivoRegexes);
+  if (motivoRaw) data.motivo = motivoRaw.replace(/\*/g, "").trim();
+
+  return data;
+}
+
 
   function clearArtifacts(str) {
     return str.replace(/\*/g, "").replace(/\s{2,}/g, " ").trim();
