@@ -1,7 +1,7 @@
 /* ========================================================================== */
 /* Archivo: frontend/src/main.jsx (ACTUALIZADO CON ROUTER)                   */
 /* ========================================================================== */
-
+import './polyfills/promise-with-resolvers'
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';

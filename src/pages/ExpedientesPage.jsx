@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import * as pdfjsLib from "pdfjs-dist";
+// import * as pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -8,7 +9,9 @@ import SectionCard from "../components/SectionCard.jsx";
 import ClipboardCopy from "../components/ClipboardCopy.jsx";
 
 // Worker de pdf.js (Vite)
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker?url";
+//import pdfjsWorker from "pdfjs-dist/build/pdf.worker?url";
+import pdfjsWorker from 'pdfjs-dist/legacy/build/pdf.worker?url';
+//pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const STORAGE_KEY = "bps_expedientes_progress_v1";
