@@ -648,11 +648,12 @@ function extractDataFromText(text) {
               <EditableField label="Apellido" value={extractedData.apellido} onChange={(v) => handleFieldChange("apellido", v)} />
               <EditableField label="Prestador actual" value={extractedData.prestadorActual} onChange={(v) => handleFieldChange("prestadorActual", v)} />
               <EditableField label="Nuevo prestador" value={extractedData.prestadorNuevo} onChange={(v) => handleFieldChange("prestadorNuevo", v)} />
-              <EditableTextArea label="Motivo" value={extractedData.motivo} onChange={(v) => handleFieldChange("motivo", v)} />
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Asunto</p>
-                <ClipboardCopy textToCopy={asuntoText} />
-              </div>
+              <EditableField label="Motivo" value={extractedData.motivo} onChange={(v) => handleFieldChange("motivo", v)} />
+
+              {/* Acciones del paso 0 */}
+              <InfoItem label="Acción" value="Verificar en la RING posibilidad de cambio" />
+              <InfoItem label="Acción" value="Descargar Solicitud Detallada" />
+
               <ValidationHints data={extractedData} />
             </div>
           </SectionCard>
@@ -899,7 +900,7 @@ function ValidationHints({ data }) {
 const FojaRangeRow = ({ label, value, onChange, onFromBlur, onToBlur }) => (
   <div className="grid grid-cols-1 md:grid-cols-12 items-end gap-3">
     <div className="md:col-span-6">
-      <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
+      <p className="text-sm font-semibold text-gray-800 mb-1">{label}</p>
     </div>
     <div className="md:col-span-3">
       <p className="text-xs font-medium text-gray-500">Foja desde</p>
